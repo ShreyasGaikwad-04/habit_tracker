@@ -5,6 +5,190 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 import sqlite3 
 
+# Keep the visual language compact on desktop and comfortable for touch on phones.
+st.markdown(
+    """
+    <style>
+    :root {
+        --ink: #edf5f3;
+        --muted: #b5c5c4;
+        --accent: #39c6b5;
+        --accent-soft: #183c3d;
+        --warm: #f2a27b;
+        --surface: #1c292d;
+        --surface-alt: #223438;
+        --page: #10191c;
+        --line: #3d5658;
+    }
+
+    .stApp {
+        background: var(--page);
+        color: var(--ink);
+    }
+
+    [data-testid="stMainBlockContainer"] {
+        max-width: 940px;
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+    }
+
+    h1 {
+        color: var(--ink);
+        font-family: "Trebuchet MS", sans-serif;
+        font-size: 2rem !important;
+        letter-spacing: 0;
+        margin-bottom: 0.25rem !important;
+    }
+
+    h2 {
+        color: var(--ink);
+        font-size: 1.35rem !important;
+        margin-top: 1.25rem !important;
+    }
+
+    h3 {
+        color: var(--ink);
+        font-size: 1.05rem !important;
+    }
+
+    [data-testid="stCaptionContainer"] {
+        color: var(--muted);
+    }
+
+    [data-testid="stMarkdownContainer"],
+    [data-testid="stMarkdownContainer"] p,
+    label,
+    [data-testid="stWidgetLabel"] p {
+        color: var(--ink);
+    }
+
+    [data-testid="stHorizontalBlock"] {
+        gap: 0.75rem;
+    }
+
+    [data-testid="stDivider"] {
+        margin: 1rem 0;
+        border-color: var(--line);
+    }
+
+    [data-testid="stExpander"] {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+    }
+
+    [data-testid="stExpander"] summary {
+        color: var(--accent);
+        font-weight: 600;
+    }
+
+    [data-testid="stExpander"] details {
+        background: var(--surface);
+    }
+
+    .stButton > button {
+        min-height: 2.5rem;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        background: var(--surface-alt);
+        font-weight: 600;
+    }
+
+    .stButton > button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    [data-testid="stPills"] button[aria-checked="true"] {
+        background: var(--accent) !important;
+        border-color: var(--accent) !important;
+        color: #071516 !important;
+    }
+
+    [data-testid="stPills"] button {
+        min-height: 2.5rem;
+        border: 1px solid var(--line) !important;
+        border-radius: 8px;
+        background: var(--surface-alt) !important;
+        color: var(--ink) !important;
+        white-space: nowrap;
+    }
+
+    [data-testid="stPills"] button:hover {
+        border-color: var(--accent) !important;
+        color: var(--accent) !important;
+    }
+
+    [data-baseweb="input"],
+    [data-baseweb="select"],
+    [data-baseweb="textarea"] {
+        background: var(--surface-alt);
+        border-color: var(--line);
+    }
+
+    input,
+    textarea,
+    [data-baseweb="select"] * {
+        color: var(--ink) !important;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+        color: var(--muted) !important;
+    }
+
+    [data-testid="stSidebar"] {
+        background: #172427;
+    }
+
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3 {
+        font-size: 1.25rem !important;
+    }
+
+    [data-testid="stSidebar"] [role="radiogroup"] label {
+        color: var(--ink);
+    }
+
+    /* On small screens, let content use the full width and keep controls touchable. */
+    @media (max-width: 640px) {
+        [data-testid="stMainBlockContainer"] {
+            padding: 1rem 0.85rem 2rem;
+        }
+
+        h1 {
+            font-size: 1.65rem !important;
+        }
+
+        h2 {
+            font-size: 1.2rem !important;
+        }
+
+        [data-testid="stHorizontalBlock"] {
+            gap: 0.45rem;
+        }
+
+        [data-testid="stPills"] {
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+        }
+
+        [data-testid="stPills"] button {
+            font-size: 0.8rem;
+            padding: 0.35rem 0.55rem;
+        }
+
+        .stButton > button {
+            min-height: 2.75rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 
 # ----------------------------------------------------------------------
 # Database setup
@@ -148,7 +332,7 @@ with next_col:
 if page == "📝 Activities":
     
     st.title("📅 Daily Tracker")
-    st.write(f"Track how you spent your day — {selected_date.strftime('%d %B %Y')}")
+    st.caption(f"Track how you spent your day — {selected_date.strftime('%d %B %Y')}")
 
     st.subheader("What did you do today? 🤷")
 
@@ -335,8 +519,7 @@ if page == "📝 Activities":
             )
 
         conn.commit()
-
-    st.success("Activities saved successfully! 🎉")
+        st.success("Activities saved successfully! 🎉")
 
 
 
@@ -368,7 +551,7 @@ elif page == "✅ To-Do List":
 
         st.subheader("📅 Scheduled Tasks")
 
-        st.write("Tasks that need to be done on a specific date and time.")
+        st.caption("Tasks that need to be done on a specific date and time.")
 
         st.divider()
 
@@ -478,7 +661,7 @@ elif page == "✅ To-Do List":
 
         st.subheader("⏰ Deadline Tasks")
 
-        st.write(
+        st.caption(
             "Tasks that can be done anytime but have a deadline."
         )
 
@@ -587,7 +770,7 @@ elif page == "✅ To-Do List":
 
         st.subheader("📌 Flexible Tasks")
 
-        st.write(
+        st.caption(
             "Tasks without a specific date or deadline."
         )
 
@@ -712,3 +895,48 @@ elif page == "📜 History":
     else:
 
         st.info("No activities recorded for this date.")
+
+    st.divider()
+    st.subheader(
+        f"Completed Tasks on {selected_date.strftime('%d %B %Y')}"
+    )
+
+    next_date = selected_date + timedelta(days=1)
+
+    completed_tasks = conn.execute(
+        """
+        SELECT task, type, scheduled_time, deadline, completed_at
+        FROM tasks
+        WHERE completed = 1
+        AND completed_at >= ?
+        AND completed_at < ?
+        ORDER BY completed_at
+        """,
+        (
+            selected_date.isoformat(),
+            next_date.isoformat()
+        )
+    ).fetchall()
+
+    if completed_tasks:
+
+        for task_name, task_type, scheduled_time, deadline, completed_at in completed_tasks:
+
+            completed_time = completed_at[11:16]
+            task_details = ""
+
+            if task_type == "scheduled" and scheduled_time:
+                task_details = f" at {scheduled_time}"
+            elif task_type == "deadline" and deadline:
+                task_details = f" (due {deadline})"
+
+            st.write(
+                f"### ✅ {task_name}"
+            )
+            st.write(
+                f"Completed at {completed_time}{task_details}"
+            )
+
+    else:
+
+        st.info("No tasks completed on this date.")
