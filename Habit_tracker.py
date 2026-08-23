@@ -12,6 +12,7 @@ import sqlite3
 
 conn = sqlite3.connect("habit_tracker.db")
 
+# Activities table
 conn.execute("""
 CREATE TABLE IF NOT EXISTS activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,7 +23,39 @@ CREATE TABLE IF NOT EXISTS activities (
 )
 """)
 
+# Categories table
+conn.execute("""
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    emoji TEXT NOT NULL
+)
+""")
+
 conn.commit()
+
+
+# Default categories
+default_categories = [
+    ("Study", "📚"),
+    ("Coding", "💻"),
+    ("Exercise", "🏃"),
+    ("Playing", "🎮"),
+    ("Entertainment", "🎬"),
+    ("Social", "👥"),
+    ("Reading", "📖")
+]
+
+# Add default categories only if there are no categories yet
+cursor = conn.execute("SELECT COUNT(*) FROM categories")
+category_count = cursor.fetchone()[0]
+
+if category_count == 0:
+    conn.executemany(
+        "INSERT INTO categories (name, emoji) VALUES (?, ?)",
+        default_categories
+    )
+    conn.commit()
 
 # ----------------------------------------------------------------------
 # side bar
@@ -67,7 +100,7 @@ selected_date = st.pills(
 # ----------------------------------------------------------------------
 # Categories page
 # ----------------------------------------------------------------------
-#categories
+
 if page == "📝 Activities":
     
     st.title("📅 Daily Tracker")
@@ -75,176 +108,182 @@ if page == "📝 Activities":
 
     st.subheader("What did you do today? 🤷")
 
-    # Study
-    study = st.checkbox("📚 Study")
+    st.divider()
 
-    if study:
-        st.write("### 📚 Study")
+    st.subheader("⚙️ Manage Categories")
 
-        study_time = st.number_input(
+    # --------------------------------------------
+    # add category
+    # --------------------------------------------
+    with st.expander("➕ Add Category"):
+
+        new_category_name = st.text_input(
+            "Category name",
+            placeholder="e.g. Music"
+        )
+
+        new_category_emoji = st.text_input(
+            "Emoji",
+            placeholder="e.g. 🎵"
+        )
+
+        if st.button("Add Category"):
+
+            if new_category_name and new_category_emoji:
+
+                conn.execute(
+                    """
+                    INSERT INTO categories (name, emoji)
+                    VALUES (?, ?)
+                    """,
+                    (new_category_name, new_category_emoji)
+                )
+
+                conn.commit()
+
+                st.success(
+                    f"{new_category_emoji} {new_category_name} added!"
+                )
+
+                st.rerun()
+
+            else:
+
+                st.warning("Please enter both a name and an emoji.")
+
+    # --------------------------------------------
+    # Delete category
+    # --------------------------------------------
+    with st.expander("🗑️ Delete Category"):
+
+        categories_to_delete = conn.execute(
+            "SELECT id, name, emoji FROM categories"
+        ).fetchall()
+
+        category_options = {
+            category_id: f"{emoji} {name}"
+            for category_id, name, emoji in categories_to_delete
+        }
+
+        category_id = st.selectbox(
+            "Select category to delete",
+            options=category_options.keys(),
+            format_func=lambda x: category_options[x]
+        )
+
+        if st.button("Delete Category"):
+
+            st.session_state["confirm_delete"] = True
+
+
+        # Confirmation
+        if st.session_state.get("confirm_delete", False):
+
+            selected_name = category_options[category_id]
+
+            st.warning(
+                f"Are you sure you want to delete {selected_name}?\n\n"
+                "This will remove it from future activities, "
+                "but your previous activity history will remain."
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                if st.button("Yes, Delete"):
+
+                    conn.execute(
+                        "DELETE FROM categories WHERE id = ?",
+                        (category_id,)
+                    )
+
+                    conn.commit()
+
+                    st.session_state["confirm_delete"] = False
+
+                    st.success(f"{selected_name} deleted!")
+
+                    st.rerun()
+
+            with col2:
+                if st.button("Cancel"):
+
+                    st.session_state["confirm_delete"] = False
+
+                    st.rerun()
+
+    # --------------------------------------------
+    # Get categories from database
+    # --------------------------------------------
+
+    cursor = conn.execute(
+        "SELECT id, name, emoji FROM categories"
+    )
+
+    categories = cursor.fetchall()
+
+
+    
+    # --------------------------------------------
+    # Display categories
+    # --------------------------------------------
+
+    selected_categories = []
+
+    for category_id, name, emoji in categories:
+
+        selected = st.checkbox(
+            f"{emoji} {name}",
+            key=f"category_{category_id}"
+        )
+
+        if selected:
+            selected_categories.append(
+                (category_id, name, emoji)
+            )
+
+
+    
+    # --------------------------------------------
+    # Show inputs for selected categories
+    # --------------------------------------------
+    activity_data = []
+
+    for category_id, name, emoji in selected_categories:
+
+        st.write(f"### {emoji} {name}")
+
+        time_spent = st.number_input(
             "Time spent (hours)",
             min_value=0.0,
             step=0.5,
-            key="study_time"
+            key=f"time_{category_id}"
         )
 
-        study_description = st.text_area(
-            "What did you study?",
-            key="study_description"
+        description = st.text_area(
+            f"What did you do in {name}?",
+            key=f"description_{category_id}"
         )
 
-
-    # Coding
-    coding = st.checkbox("💻 Coding")
-
-    if coding:
-        st.write("### 💻 Coding")
-
-        coding_time = st.number_input(
-            "Time spent (hours)",
-            min_value=0.0,
-            step=0.5,
-            key="coding_time"
-        )
-
-        coding_description = st.text_area(
-            "What did you code?",
-            key="coding_description"
-        )
-
-
-    # Exercise
-    exercise = st.checkbox("🏃 Exercise")
-
-    if exercise:
-        st.write("### 🏃 Exercise")
-
-        exercise_time = st.number_input(
-            "Time spent (hours)",
-            min_value=0.0,
-            step=0.5,
-            key="exercise_time"
-        )
-
-        exercise_description = st.text_area(
-            "What exercise did you do?",
-            key="exercise_description"
-        )
-
-
-    # Playing
-    playing = st.checkbox("🎮 Playing")
-
-    if playing:
-        st.write("### 🎮 Playing")
-
-        playing_time = st.number_input(
-            "Time spent (hours)",
-            min_value=0.0,
-            step=0.5,
-            key="playing_time"
-        )
-
-        playing_description = st.text_area(
-            "What did you play?",
-            key="playing_description"
-        )
-
-
-    # Entertainment
-    entertainment = st.checkbox("🎬 Entertainment")
-
-    if entertainment:
-        st.write("### 🎬 Entertainment")
-
-        entertainment_time = st.number_input(
-            "Time spent (hours)",
-            min_value=0.0,
-            step=0.5,
-            key="entertainment_time"
-        )
-
-        entertainment_description = st.text_area(
-            "What did you watch/do?",
-            key="entertainment_description"
-        )
-
-
-    # Social
-    social = st.checkbox("👥 Social")
-
-    if social:
-        st.write("### 👥 Social")
-
-        social_time = st.number_input(
-            "Time spent (hours)",
-            min_value=0.0,
-            step=0.5,
-            key="social_time"
-        )
-
-        social_description = st.text_area(
-            "What did you do?",
-            key="social_description"
-        )
-
-
-    # Reading
-    reading = st.checkbox("📖 Reading")
-
-    if reading:
-        st.write("### 📖 Reading")
-
-        reading_time = st.number_input(
-            "Time spent (hours)",
-            min_value=0.0,
-            step=0.5,
-            key="reading_time"
-        )
-
-        reading_description = st.text_area(
-            "What did you read?",
-            key="reading_description"
-        )
+        activity_data.append({
+            "category": name,
+            "time": time_spent,
+            "description": description
+        })
 
 
     if st.button("💾 Save Activities"):
 
-        activities = []
-
-        if study:
-            activities.append({
-                "date": selected_date,
-                "category": "Study",
-                "time": study_time,
-                "description": study_description
-            })
-
-        if coding:
-            activities.append({
-                "date": selected_date,
-                "category": "Coding",
-                "time": coding_time,
-                "description": coding_description
-            })
-
-        if exercise:
-            activities.append({
-                "date": selected_date,
-                "category": "Exercise",
-                "time": exercise_time,
-                "description": exercise_description
-            })
-
-        for activity in activities:
+        for activity in activity_data:
 
             conn.execute(
                 """
-                INSERT INTO activities (date, category, time, description)
+                INSERT INTO activities
+                (date, category, time, description)
                 VALUES (?, ?, ?, ?)
                 """,
                 (
-                    activity["date"].isoformat(),
+                    selected_date.isoformat(),
                     activity["category"],
                     activity["time"],
                     activity["description"]
@@ -253,7 +292,7 @@ if page == "📝 Activities":
 
         conn.commit()
 
-        st.success("Activities saved successfully! 🎉")
+    st.success("Activities saved successfully! 🎉")
 
 
 
