@@ -195,12 +195,18 @@ st.markdown(
 # Database setup
 # ----------------------------------------------------------------------
 
+def get_database_setting(name):
+    if name in st.secrets:
+        return st.secrets[name]
+    return os.environ[name]
+
+
 conn = mysql.connector.connect(
-    host=os.environ["MYSQLHOST"],
-    port=int(os.environ.get("MYSQLPORT", "3306")),
-    user=os.environ["MYSQLUSER"],
-    password=os.environ["MYSQLPASSWORD"],
-    database=os.environ["MYSQLDATABASE"],
+    host=get_database_setting("MYSQLHOST"),
+    port=int(st.secrets.get("MYSQLPORT", os.environ.get("MYSQLPORT", "3306"))),
+    user=get_database_setting("MYSQLUSER"),
+    password=get_database_setting("MYSQLPASSWORD"),
+    database=get_database_setting("MYSQLDATABASE"),
 )
 
 
