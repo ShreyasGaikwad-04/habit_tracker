@@ -207,6 +207,7 @@ conn = mysql.connector.connect(
     user=get_database_setting("MYSQLUSER"),
     password=get_database_setting("MYSQLPASSWORD"),
     database=get_database_setting("MYSQLDATABASE"),
+    connection_timeout=10,
 )
 
 
