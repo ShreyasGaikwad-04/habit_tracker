@@ -3,7 +3,8 @@
 # ----------------------------------------------------------------------
 import streamlit as st
 from datetime import date, datetime, timedelta
-import sqlite3 
+import os
+import mysql.connector
 
 # Keep the visual language compact on desktop and comfortable for touch on phones.
 st.markdown(
@@ -194,29 +195,25 @@ st.markdown(
 # Database setup
 # ----------------------------------------------------------------------
 
-conn = sqlite3.connect("habit_tracker.db")
-
-# Activities table
-conn.execute("""
-CREATE TABLE IF NOT EXISTS activities (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT,
-    category TEXT,
-    time REAL,
-    description TEXT
+conn = mysql.connector.connect(
+    host=os.environ["MYSQLHOST"],
+    port=int(os.environ.get("MYSQLPORT", "3306")),
+    user=os.environ["MYSQLUSER"],
+    password=os.environ["MYSQLPASSWORD"],
+    database=os.environ["MYSQLDATABASE"],
 )
-""")
 
-# Categories table
-conn.execute("""
-CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    emoji TEXT NOT NULL
-)
-""")
 
-conn.commit()
+def execute(query, params=()):
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    return cursor
+
+
+def executemany(query, params):
+    cursor = conn.cursor()
+    cursor.executemany(query, params)
+    return cursor
 
 
 # Default categories
@@ -231,32 +228,16 @@ default_categories = [
 ]
 
 # Add default categories only if there are no categories yet
-cursor = conn.execute("SELECT COUNT(*) FROM categories")
+cursor = execute("SELECT COUNT(*) FROM categories")
 category_count = cursor.fetchone()[0]
 
 if category_count == 0:
-    conn.executemany(
-        "INSERT INTO categories (name, emoji) VALUES (?, ?)",
+    executemany(
+        "INSERT INTO categories (name, emoji) VALUES (%s, %s)",
         default_categories
     )
     conn.commit()
 
-
-# Tasks table
-conn.execute("""
-CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task TEXT NOT NULL,
-    type TEXT NOT NULL,
-    scheduled_date TEXT,
-    scheduled_time TEXT,
-    deadline TEXT,
-    completed INTEGER DEFAULT 0,
-    completed_at TEXT
-)
-""")
-
-conn.commit()
 
 # ----------------------------------------------------------------------
 # side bar
@@ -359,10 +340,10 @@ if page == "📝 Activities":
 
             if new_category_name and new_category_emoji:
 
-                conn.execute(
+                execute(
                     """
                     INSERT INTO categories (name, emoji)
-                    VALUES (?, ?)
+                    VALUES (%s, %s)
                     """,
                     (new_category_name, new_category_emoji)
                 )
@@ -384,7 +365,7 @@ if page == "📝 Activities":
     # --------------------------------------------
     with st.expander("🗑️ Delete Category"):
 
-        categories_to_delete = conn.execute(
+        categories_to_delete = execute(
             "SELECT id, name, emoji FROM categories"
         ).fetchall()
 
@@ -420,8 +401,8 @@ if page == "📝 Activities":
             with col1:
                 if st.button("Yes, Delete"):
 
-                    conn.execute(
-                        "DELETE FROM categories WHERE id = ?",
+                    execute(
+                        "DELETE FROM categories WHERE id = %s",
                         (category_id,)
                     )
 
@@ -444,7 +425,7 @@ if page == "📝 Activities":
     # Get categories from database
     # --------------------------------------------
 
-    cursor = conn.execute(
+    cursor = execute(
         "SELECT id, name, emoji FROM categories"
     )
 
@@ -504,11 +485,11 @@ if page == "📝 Activities":
 
         for activity in activity_data:
 
-            conn.execute(
+            execute(
                 """
                 INSERT INTO activities
                 (date, category, time, description)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (
                     selected_date.isoformat(),
@@ -560,12 +541,12 @@ elif page == "✅ To-Do List":
         )
 
         # Get scheduled tasks for selected date
-        scheduled_tasks = conn.execute(
+        scheduled_tasks = execute(
             """
             SELECT id, task, scheduled_time
             FROM tasks
             WHERE type = 'scheduled'
-            AND scheduled_date = ?
+            AND scheduled_date = %s
             AND completed = 0
             ORDER BY scheduled_time
             """,
@@ -592,12 +573,12 @@ elif page == "✅ To-Do List":
                         key=f"done_scheduled_{task_id}"
                     ):
 
-                        conn.execute(
+                        execute(
                             """
                             UPDATE tasks
                             SET completed = 1,
-                                completed_at = ?
-                            WHERE id = ?
+                                completed_at = %s
+                                WHERE id = %s
                             """,
                             (
                                 datetime.now().isoformat(),
@@ -633,11 +614,11 @@ elif page == "✅ To-Do List":
 
             if st.button("Save Task", key="save_scheduled_task"):
                 if task.strip():
-                    conn.execute(
+                    execute(
                         """
                         INSERT INTO tasks
                         (task, type, scheduled_date, scheduled_time)
-                        VALUES (?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s)
                         """,
                         (
                             task.strip(),
@@ -674,13 +655,13 @@ elif page == "✅ To-Do List":
 
 
         # Get active deadline tasks
-        deadline_tasks = conn.execute(
+        deadline_tasks = execute(
             """
             SELECT id, task, deadline
             FROM tasks
             WHERE type = 'deadline'
             AND completed = 0
-            AND deadline >= ?
+            AND deadline >= %s
             ORDER BY deadline
             """,
             (today_date,)
@@ -707,12 +688,12 @@ elif page == "✅ To-Do List":
                         key=f"done_deadline_{task_id}"
                     ):
 
-                        conn.execute(
+                        execute(
                             """
                             UPDATE tasks
                             SET completed = 1,
-                                completed_at = ?
-                            WHERE id = ?
+                                completed_at = %s
+                                WHERE id = %s
                             """,
                             (
                                 datetime.now().isoformat(),
@@ -743,11 +724,11 @@ elif page == "✅ To-Do List":
 
             if st.button("Save Task", key="save_deadline_task"):
                 if task.strip():
-                    conn.execute(
+                    execute(
                         """
                         INSERT INTO tasks
                         (task, type, deadline)
-                        VALUES (?, ?, ?)
+                        VALUES (%s, %s, %s)
                         """,
                         (
                             task.strip(),
@@ -778,7 +759,7 @@ elif page == "✅ To-Do List":
 
         st.subheader("Your Flexible Tasks")
 
-        flexible_tasks = conn.execute(
+        flexible_tasks = execute(
             """
             SELECT id, task
             FROM tasks
@@ -808,12 +789,12 @@ elif page == "✅ To-Do List":
                         key=f"done_flexible_{task_id}"
                     ):
 
-                        conn.execute(
+                        execute(
                             """
                             UPDATE tasks
                             SET completed = 1,
-                                completed_at = ?
-                            WHERE id = ?
+                                completed_at = %s
+                                WHERE id = %s
                             """,
                             (
                                 datetime.now().isoformat(),
@@ -838,11 +819,11 @@ elif page == "✅ To-Do List":
 
             if st.button("Save Task", key="save_flexible_task"):
                 if task.strip():
-                    conn.execute(
+                    execute(
                         """
                         INSERT INTO tasks
                         (task, type)
-                        VALUES (?, ?)
+                        VALUES (%s, %s)
                         """,
                         (
                             task.strip(),
@@ -862,11 +843,11 @@ elif page == "📜 History":
 
     st.title("📜 History")
 
-    cursor = conn.execute(
+    cursor = execute(
     """
     SELECT category, time, description
     FROM activities
-    WHERE date = ?
+    WHERE date = %s
     """,
     (selected_date.isoformat(),)
     )
@@ -903,13 +884,13 @@ elif page == "📜 History":
 
     next_date = selected_date + timedelta(days=1)
 
-    completed_tasks = conn.execute(
+    completed_tasks = execute(
         """
         SELECT task, type, scheduled_time, deadline, completed_at
         FROM tasks
         WHERE completed = 1
-        AND completed_at >= ?
-        AND completed_at < ?
+        AND completed_at >= %s
+        AND completed_at < %s
         ORDER BY completed_at
         """,
         (
