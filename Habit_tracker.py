@@ -6,50 +6,77 @@ from datetime import date, datetime, timedelta
 import os
 import mysql.connector
 
-# Keep the visual language compact on desktop and comfortable for touch on phones.
+st.set_page_config(
+    page_title="Daily Tracker",
+    page_icon="📅",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+    menu_items={"Get Help": None, "Report a bug": None, "About": None},
+)
+
 st.markdown(
     """
     <style>
     :root {
-        --ink: #edf5f3;
-        --muted: #b5c5c4;
-        --accent: #39c6b5;
-        --accent-soft: #183c3d;
-        --warm: #f2a27b;
-        --surface: #1c292d;
-        --surface-alt: #223438;
-        --page: #10191c;
-        --line: #3d5658;
+        --ink: #f4f7f5;
+        --muted: #9eafad;
+        --accent: #55d6c2;
+        --accent-dark: #123a3b;
+        --warm: #ff9c73;
+        --surface: #18282c;
+        --surface-alt: #20353a;
+        --page: #0d181b;
+        --line: #344d51;
     }
 
     .stApp {
-        background: var(--page);
+        background: radial-gradient(circle at 100% 0%, rgba(85, 214, 194, 0.14), transparent 26rem),
+            linear-gradient(135deg, #0d181b 0%, #102124 52%, #0d181b 100%);
         color: var(--ink);
     }
 
     [data-testid="stMainBlockContainer"] {
-        max-width: 940px;
-        padding-top: 2rem;
-        padding-bottom: 3rem;
+        max-width: 820px;
+        padding-top: 1.2rem;
+        padding-bottom: 2rem;
     }
 
     h1 {
         color: var(--ink);
-        font-family: "Trebuchet MS", sans-serif;
-        font-size: 2rem !important;
+        font-family: Georgia, serif;
+        font-size: 2.15rem !important;
         letter-spacing: 0;
-        margin-bottom: 0.25rem !important;
+        margin: 0 !important;
     }
 
     h2 {
         color: var(--ink);
-        font-size: 1.35rem !important;
-        margin-top: 1.25rem !important;
+        font-size: 1.25rem !important;
+        margin-top: 1rem !important;
     }
 
     h3 {
         color: var(--ink);
         font-size: 1.05rem !important;
+    }
+
+    .date-badge {
+        display: inline-block;
+        margin: 0.2rem 0 0.5rem;
+        padding: 0.25rem 0.7rem;
+        border: 1px solid rgba(85, 214, 194, 0.35);
+        border-radius: 999px;
+        background: var(--accent-dark);
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        animation: badge-in 420ms ease-out both;
+    }
+
+    @keyframes badge-in {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     [data-testid="stCaptionContainer"] {
@@ -64,11 +91,11 @@ st.markdown(
     }
 
     [data-testid="stHorizontalBlock"] {
-        gap: 0.75rem;
+        gap: 0.55rem;
     }
 
     [data-testid="stDivider"] {
-        margin: 1rem 0;
+        margin: 0.75rem 0;
         border-color: var(--line);
     }
 
@@ -88,9 +115,9 @@ st.markdown(
     }
 
     .stButton > button {
-        min-height: 2.5rem;
+        min-height: 2.35rem;
         border: 1px solid var(--line);
-        border-radius: 8px;
+        border-radius: 10px;
         color: var(--ink);
         background: var(--surface-alt);
         font-weight: 600;
@@ -108,9 +135,9 @@ st.markdown(
     }
 
     [data-testid="stPills"] button {
-        min-height: 2.5rem;
+        min-height: 2.7rem;
         border: 1px solid var(--line) !important;
-        border-radius: 8px;
+        border-radius: 999px;
         background: var(--surface-alt) !important;
         color: var(--ink) !important;
         white-space: nowrap;
@@ -153,14 +180,35 @@ st.markdown(
         color: var(--ink);
     }
 
+    [data-testid="stToolbar"],
+    [data-testid="stDecoration"],
+    footer {
+        visibility: hidden;
+        height: 0;
+    }
+
+    [data-testid="stSidebar"] {
+        border-right: 1px solid var(--line);
+    }
+
+    [data-testid="stSlider"] [role="slider"] {
+        background: var(--warm);
+        border-color: var(--warm);
+        box-shadow: 0 0 0 5px rgba(255, 156, 115, 0.16);
+    }
+
+    [data-testid="stSlider"] [data-baseweb="slider"] > div > div:first-child {
+        background: linear-gradient(90deg, var(--accent), var(--warm));
+    }
+
     /* On small screens, let content use the full width and keep controls touchable. */
     @media (max-width: 640px) {
         [data-testid="stMainBlockContainer"] {
-            padding: 1rem 0.85rem 2rem;
+            padding: 0.65rem 0.75rem 1.5rem;
         }
 
         h1 {
-            font-size: 1.65rem !important;
+            font-size: 1.8rem !important;
         }
 
         h2 {
@@ -168,17 +216,25 @@ st.markdown(
         }
 
         [data-testid="stHorizontalBlock"] {
-            gap: 0.45rem;
+            gap: 0.35rem;
         }
 
         [data-testid="stPills"] {
+            width: 100%;
             overflow-x: auto;
-            padding-bottom: 0.25rem;
+            padding: 0.1rem 0 0.3rem;
+            scrollbar-width: none;
+        }
+
+        [data-testid="stPills"] > div {
+            flex-wrap: nowrap !important;
+            width: max-content;
         }
 
         [data-testid="stPills"] button {
-            font-size: 0.8rem;
-            padding: 0.35rem 0.55rem;
+            flex: 0 0 auto;
+            font-size: 0.82rem;
+            padding: 0.35rem 0.7rem;
         }
 
         .stButton > button {
@@ -320,12 +376,11 @@ with next_col:
 if page == "📝 Activities":
     
     st.title("📅 Daily Tracker")
-    st.caption(f"Track how you spent your day — {selected_date.strftime('%d %B %Y')}")
-
-    st.subheader("What did you do today? 🤷")
-
-    st.divider()
-
+    st.markdown(
+        f'<div class="date-badge">{selected_date.strftime("%A, %d %B %Y")}</div>',
+        unsafe_allow_html=True,
+    )
+    st.subheader("What did you do today?")
     st.subheader("⚙️ Manage Categories")
 
     # --------------------------------------------
@@ -469,10 +524,13 @@ if page == "📝 Activities":
 
         st.write(f"### {emoji} {name}")
 
-        time_spent = st.number_input(
-            "Time spent (hours)",
+        time_spent = st.slider(
+            "Time spent",
             min_value=0.0,
+            max_value=24.0,
+            value=0.0,
             step=0.5,
+            format="%.1f h",
             key=f"time_{category_id}"
         )
 
