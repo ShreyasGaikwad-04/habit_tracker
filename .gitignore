@@ -5,3 +5,4 @@ habit_tracker.db
 .env
 venv/
 .venv/
+.streamlit/secrets.toml

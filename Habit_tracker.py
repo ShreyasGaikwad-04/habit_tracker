@@ -14,6 +14,16 @@ st.set_page_config(
     menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
+if not st.user.is_logged_in:
+    st.title("📅 Daily Tracker")
+    st.write("Sign in with Google to continue.")
+    st.button(
+        "Continue with Google",
+        on_click=st.login,
+        args=("google",),
+    )
+    st.stop()
+
 st.markdown(
     """
     <style>
@@ -324,6 +334,10 @@ if category_count == 0:
 # side bar
 # ----------------------------------------------------------------------
 st.sidebar.title("Daily Tracker")
+st.sidebar.caption(f"Signed in as {st.user.email}")
+
+if st.sidebar.button("Log out"):
+    st.logout()
 
 page = st.sidebar.radio(
     "Go to",
