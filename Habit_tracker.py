@@ -37,7 +37,7 @@ st.markdown(
 
     [data-testid="stMainBlockContainer"] {
         max-width: 820px;
-        padding-top: 1.2rem;
+        padding-top: 2rem;
         padding-bottom: 2rem;
     }
 
@@ -222,7 +222,7 @@ st.markdown(
     /* On small screens, let content use the full width and keep controls touchable. */
     @media (max-width: 640px) {
         [data-testid="stMainBlockContainer"] {
-            padding: 1.5rem 0.75rem 1.5rem;
+            padding: 3rem 0.75rem 1.5rem;
         }
 
         h1 {
