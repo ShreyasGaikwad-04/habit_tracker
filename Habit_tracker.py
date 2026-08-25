@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Daily Tracker",
     page_icon="📅",
     layout="centered",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
     menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
@@ -191,6 +191,43 @@ st.markdown(
         border-right: 1px solid var(--line);
     }
 
+    [data-testid="stSidebarCollapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        top: 4rem;
+    }
+
+    [data-testid="stSidebarCollapsedControl"] button {
+        color: var(--accent) !important;
+        background: var(--surface) !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 0 10px 10px 0 !important;
+    }
+
+    .st-key-date-navigation [data-testid="stHorizontalBlock"] {
+        flex-wrap: nowrap !important;
+        align-items: center;
+    }
+
+    .st-key-date-navigation [data-testid="column"] {
+        min-width: 0 !important;
+    }
+
+    .st-key-date-navigation [data-testid="stPills"] {
+        overflow: hidden;
+    }
+
+    .st-key-date-navigation [data-testid="stPills"] > div {
+        flex-wrap: nowrap !important;
+        justify-content: center;
+    }
+
+    .st-key-date-navigation [data-testid="stPills"] button {
+        min-height: 2.25rem;
+        padding: 0.2rem 0.45rem;
+        font-size: 0.78rem;
+    }
+
     [data-testid="stSlider"] [role="slider"] {
         background: var(--warm);
         border-color: var(--warm);
@@ -235,6 +272,11 @@ st.markdown(
             flex: 0 0 auto;
             font-size: 0.82rem;
             padding: 0.35rem 0.7rem;
+        }
+
+        .st-key-date-navigation [data-testid="stPills"] button {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.25rem;
         }
 
         .stButton > button {
@@ -329,36 +371,37 @@ dates = [
     for offset in range(3)
 ]
 
-previous_col, dates_col, next_col = st.columns([0.9, 8, 0.9])
+with st.container(key="date-navigation"):
+    previous_col, dates_col, next_col = st.columns([0.9, 8, 0.9])
 
-with previous_col:
-    if st.button("←", key="previous_dates"):
-        st.session_state.date_window_start -= timedelta(days=3)
-        st.session_state.selected_date = (
-            st.session_state.date_window_start + timedelta(days=1)
+    with previous_col:
+        if st.button("←", key="previous_dates"):
+            st.session_state.date_window_start -= timedelta(days=3)
+            st.session_state.selected_date = (
+                st.session_state.date_window_start + timedelta(days=1)
+            )
+            st.rerun()
+
+    with dates_col:
+        selected_date = st.pills(
+            "Select a date",
+            dates,
+            format_func=lambda x: x.strftime("%a, %d %b"),
+            default=st.session_state.selected_date,
+            key=f"date_pills_{st.session_state.date_window_start}",
+            label_visibility="collapsed",
+            width="stretch"
         )
-        st.rerun()
 
-with dates_col:
-    selected_date = st.pills(
-        "Select a date",
-        dates,
-        format_func=lambda x: x.strftime("%a, %d %b"),
-        default=st.session_state.selected_date,
-        key=f"date_pills_{st.session_state.date_window_start}",
-        label_visibility="collapsed",
-        width="stretch"
-    )
+    st.session_state.selected_date = selected_date
 
-st.session_state.selected_date = selected_date
-
-with next_col:
-    if st.button("→", key="next_dates"):
-        st.session_state.date_window_start += timedelta(days=3)
-        st.session_state.selected_date = (
-            st.session_state.date_window_start + timedelta(days=1)
-        )
-        st.rerun()
+    with next_col:
+        if st.button("→", key="next_dates"):
+            st.session_state.date_window_start += timedelta(days=3)
+            st.session_state.selected_date = (
+                st.session_state.date_window_start + timedelta(days=1)
+            )
+            st.rerun()
 
 
 
