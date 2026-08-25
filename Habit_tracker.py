@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Daily Tracker",
     page_icon="📅",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
     menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
@@ -191,19 +191,6 @@ st.markdown(
         border-right: 1px solid var(--line);
     }
 
-    [data-testid="stSidebarCollapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        top: 4rem;
-    }
-
-    [data-testid="stSidebarCollapsedControl"] button {
-        color: var(--accent) !important;
-        background: var(--surface) !important;
-        border: 1px solid var(--line) !important;
-        border-radius: 0 10px 10px 0 !important;
-    }
-
     .st-key-date-navigation [data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
         align-items: center;
@@ -214,12 +201,13 @@ st.markdown(
     }
 
     .st-key-date-navigation [data-testid="stPills"] {
-        overflow: hidden;
+        width: 100%;
+        min-width: 0;
     }
 
     .st-key-date-navigation [data-testid="stPills"] > div {
         flex-wrap: nowrap !important;
-        justify-content: center;
+        width: 100%;
     }
 
     .st-key-date-navigation [data-testid="stPills"] button {
@@ -241,7 +229,7 @@ st.markdown(
     /* On small screens, let content use the full width and keep controls touchable. */
     @media (max-width: 640px) {
         [data-testid="stMainBlockContainer"] {
-            padding: 3rem 0.75rem 1.5rem;
+            padding: 1.5rem 0.75rem 1.5rem;
         }
 
         h1 {
@@ -265,7 +253,7 @@ st.markdown(
 
         [data-testid="stPills"] > div {
             flex-wrap: nowrap !important;
-            width: max-content;
+            width: 100%;
         }
 
         [data-testid="stPills"] button {
