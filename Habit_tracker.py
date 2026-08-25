@@ -180,7 +180,6 @@ st.markdown(
         color: var(--ink);
     }
 
-    [data-testid="stToolbar"],
     [data-testid="stDecoration"],
     footer {
         visibility: hidden;
@@ -191,29 +190,23 @@ st.markdown(
         border-right: 1px solid var(--line);
     }
 
-    .st-key-date-navigation [data-testid="stHorizontalBlock"] {
-        flex-wrap: nowrap !important;
-        align-items: center;
-    }
-
-    .st-key-date-navigation [data-testid="column"] {
-        min-width: 0 !important;
-    }
-
     .st-key-date-navigation [data-testid="stPills"] {
         width: 100%;
         min-width: 0;
+        overflow: hidden;
     }
 
     .st-key-date-navigation [data-testid="stPills"] > div {
         flex-wrap: nowrap !important;
         width: 100%;
+        justify-content: center;
     }
 
     .st-key-date-navigation [data-testid="stPills"] button {
-        min-height: 2.25rem;
-        padding: 0.2rem 0.45rem;
-        font-size: 0.78rem;
+        min-width: 0;
+        min-height: 2.15rem;
+        padding: 0.15rem 0.3rem;
+        font-size: 0.73rem;
     }
 
     [data-testid="stSlider"] [role="slider"] {
@@ -260,11 +253,6 @@ st.markdown(
             flex: 0 0 auto;
             font-size: 0.82rem;
             padding: 0.35rem 0.7rem;
-        }
-
-        .st-key-date-navigation [data-testid="stPills"] button {
-            font-size: 0.7rem;
-            padding: 0.2rem 0.25rem;
         }
 
         .stButton > button {
@@ -360,36 +348,37 @@ dates = [
 ]
 
 with st.container(key="date-navigation"):
-    previous_col, dates_col, next_col = st.columns([0.9, 8, 0.9])
+    date_options = ["←"] + dates + ["→"]
+    selected_option = st.pills(
+        "Select a date",
+        date_options,
+        format_func=lambda value: (
+            value if isinstance(value, str) else value.strftime("%a %d")
+        ),
+        default=st.session_state.selected_date,
+        key=f"date_pills_{st.session_state.date_window_start}",
+        label_visibility="collapsed",
+        width="stretch",
+    )
 
-    with previous_col:
-        if st.button("←", key="previous_dates"):
-            st.session_state.date_window_start -= timedelta(days=3)
-            st.session_state.selected_date = (
-                st.session_state.date_window_start + timedelta(days=1)
-            )
-            st.rerun()
-
-    with dates_col:
-        selected_date = st.pills(
-            "Select a date",
-            dates,
-            format_func=lambda x: x.strftime("%a, %d %b"),
-            default=st.session_state.selected_date,
-            key=f"date_pills_{st.session_state.date_window_start}",
-            label_visibility="collapsed",
-            width="stretch"
+    if selected_option == "←":
+        st.session_state.date_window_start -= timedelta(days=3)
+        st.session_state.selected_date = (
+            st.session_state.date_window_start + timedelta(days=1)
         )
+        st.rerun()
 
-    st.session_state.selected_date = selected_date
+    if selected_option == "→":
+        st.session_state.date_window_start += timedelta(days=3)
+        st.session_state.selected_date = (
+            st.session_state.date_window_start + timedelta(days=1)
+        )
+        st.rerun()
 
-    with next_col:
-        if st.button("→", key="next_dates"):
-            st.session_state.date_window_start += timedelta(days=3)
-            st.session_state.selected_date = (
-                st.session_state.date_window_start + timedelta(days=1)
-            )
-            st.rerun()
+    if isinstance(selected_option, date):
+        st.session_state.selected_date = selected_option
+
+selected_date = st.session_state.selected_date
 
 
 
