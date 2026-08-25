@@ -24,6 +24,17 @@ if not st.user.is_logged_in:
     )
     st.stop()
 
+allowed_emails = {
+    "shreyasgaikwad004@gmail.com": True,
+    # "another@gmail.com": True,
+}
+user_email = (st.user.email or "").strip().lower()
+
+if user_email not in allowed_emails:
+    st.error("This Google account is not authorized to use this app.")
+    st.logout()
+    st.stop()
+
 st.markdown(
     """
     <style>
@@ -308,7 +319,6 @@ def executemany(query, params):
 
 
 google_subject = st.user.sub
-user_email = st.user.email
 user_name = getattr(st.user, "name", "")
 
 user_record = execute(
