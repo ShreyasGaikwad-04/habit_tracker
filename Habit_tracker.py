@@ -307,6 +307,42 @@ def executemany(query, params):
     return cursor
 
 
+google_subject = st.user.sub
+user_email = st.user.email
+user_name = getattr(st.user, "name", "")
+
+user_record = execute(
+    "SELECT id FROM users WHERE google_subject = %s",
+    (google_subject,),
+).fetchone()
+
+if user_record is None:
+    execute(
+        """
+        INSERT INTO users (google_subject, email, name)
+        VALUES (%s, %s, %s)
+        """,
+        (google_subject, user_email, user_name),
+    )
+    conn.commit()
+    user_record = execute(
+        "SELECT id FROM users WHERE google_subject = %s",
+        (google_subject,),
+    ).fetchone()
+else:
+    execute(
+        """
+        UPDATE users
+        SET email = %s, name = %s
+        WHERE id = %s
+        """,
+        (user_email, user_name, user_record[0]),
+    )
+    conn.commit()
+
+user_id = user_record[0]
+
+
 # Default categories
 default_categories = [
     ("Study", "📚"),
@@ -318,14 +354,17 @@ default_categories = [
     ("Reading", "📖")
 ]
 
-# Add default categories only if there are no categories yet
-cursor = execute("SELECT COUNT(*) FROM categories")
+# Add default categories only if this user has no categories yet
+cursor = execute(
+    "SELECT COUNT(*) FROM categories WHERE user_id = %s",
+    (user_id,),
+)
 category_count = cursor.fetchone()[0]
 
 if category_count == 0:
     executemany(
-        "INSERT INTO categories (name, emoji) VALUES (%s, %s)",
-        default_categories
+        "INSERT INTO categories (user_id, name, emoji) VALUES (%s, %s, %s)",
+        [(user_id, name, emoji) for name, emoji in default_categories],
     )
     conn.commit()
 
@@ -438,10 +477,10 @@ if page == "📝 Activities":
 
                 execute(
                     """
-                    INSERT INTO categories (name, emoji)
-                    VALUES (%s, %s)
+                    INSERT INTO categories (user_id, name, emoji)
+                    VALUES (%s, %s, %s)
                     """,
-                    (new_category_name, new_category_emoji)
+                    (user_id, new_category_name, new_category_emoji)
                 )
 
                 conn.commit()
@@ -462,7 +501,8 @@ if page == "📝 Activities":
     with st.expander("🗑️ Delete Category"):
 
         categories_to_delete = execute(
-            "SELECT id, name, emoji FROM categories"
+            "SELECT id, name, emoji FROM categories WHERE user_id = %s",
+            (user_id,)
         ).fetchall()
 
         category_options = {
@@ -498,8 +538,8 @@ if page == "📝 Activities":
                 if st.button("Yes, Delete"):
 
                     execute(
-                        "DELETE FROM categories WHERE id = %s",
-                        (category_id,)
+                        "DELETE FROM categories WHERE id = %s AND user_id = %s",
+                        (category_id, user_id)
                     )
 
                     conn.commit()
@@ -522,7 +562,8 @@ if page == "📝 Activities":
     # --------------------------------------------
 
     cursor = execute(
-        "SELECT id, name, emoji FROM categories"
+        "SELECT id, name, emoji FROM categories WHERE user_id = %s",
+        (user_id,)
     )
 
     categories = cursor.fetchall()
@@ -587,10 +628,11 @@ if page == "📝 Activities":
             execute(
                 """
                 INSERT INTO activities
-                (date, category, time, description)
-                VALUES (%s, %s, %s, %s)
+                (user_id, date, category, time, description)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
                 (
+                    user_id,
                     selected_date.isoformat(),
                     activity["category"],
                     activity["time"],
@@ -644,12 +686,13 @@ elif page == "✅ To-Do List":
             """
             SELECT id, task, scheduled_time
             FROM tasks
-            WHERE type = 'scheduled'
+            WHERE user_id = %s
+            AND type = 'scheduled'
             AND scheduled_date = %s
             AND completed = 0
             ORDER BY scheduled_time
             """,
-            (selected_date.isoformat(),)
+            (user_id, selected_date.isoformat())
         ).fetchall()
 
 
@@ -678,10 +721,12 @@ elif page == "✅ To-Do List":
                             SET completed = 1,
                                 completed_at = %s
                                 WHERE id = %s
+                                AND user_id = %s
                             """,
                             (
                                 datetime.now().isoformat(),
-                                task_id
+                                task_id,
+                                user_id
                             )
                         )
 
@@ -716,10 +761,11 @@ elif page == "✅ To-Do List":
                     execute(
                         """
                         INSERT INTO tasks
-                        (task, type, scheduled_date, scheduled_time)
-                        VALUES (%s, %s, %s, %s)
+                        (user_id, task, type, scheduled_date, scheduled_time)
+                        VALUES (%s, %s, %s, %s, %s)
                         """,
                         (
+                            user_id,
                             task.strip(),
                             "scheduled",
                             scheduled_date.isoformat(),
@@ -758,12 +804,13 @@ elif page == "✅ To-Do List":
             """
             SELECT id, task, deadline
             FROM tasks
-            WHERE type = 'deadline'
+            WHERE user_id = %s
+            AND type = 'deadline'
             AND completed = 0
             AND deadline >= %s
             ORDER BY deadline
             """,
-            (today_date,)
+            (user_id, today_date)
         ).fetchall()
 
 
@@ -793,10 +840,12 @@ elif page == "✅ To-Do List":
                             SET completed = 1,
                                 completed_at = %s
                                 WHERE id = %s
+                                AND user_id = %s
                             """,
                             (
                                 datetime.now().isoformat(),
-                                task_id
+                                task_id,
+                                user_id
                             )
                         )
 
@@ -826,10 +875,11 @@ elif page == "✅ To-Do List":
                     execute(
                         """
                         INSERT INTO tasks
-                        (task, type, deadline)
-                        VALUES (%s, %s, %s)
+                        (user_id, task, type, deadline)
+                        VALUES (%s, %s, %s, %s)
                         """,
                         (
+                            user_id,
                             task.strip(),
                             "deadline",
                             deadline.isoformat()
@@ -862,10 +912,12 @@ elif page == "✅ To-Do List":
             """
             SELECT id, task
             FROM tasks
-            WHERE type = 'flexible'
+            WHERE user_id = %s
+            AND type = 'flexible'
             AND completed = 0
             ORDER BY id
-            """
+            """,
+            (user_id,)
         ).fetchall()
 
 
@@ -894,10 +946,12 @@ elif page == "✅ To-Do List":
                             SET completed = 1,
                                 completed_at = %s
                                 WHERE id = %s
+                                AND user_id = %s
                             """,
                             (
                                 datetime.now().isoformat(),
-                                task_id
+                                task_id,
+                                user_id
                             )
                         )
 
@@ -921,10 +975,11 @@ elif page == "✅ To-Do List":
                     execute(
                         """
                         INSERT INTO tasks
-                        (task, type)
-                        VALUES (%s, %s)
+                        (user_id, task, type)
+                        VALUES (%s, %s, %s)
                         """,
                         (
+                            user_id,
                             task.strip(),
                             "flexible"
                         )
@@ -946,9 +1001,10 @@ elif page == "📜 History":
     """
     SELECT category, time, description
     FROM activities
-    WHERE date = %s
+    WHERE user_id = %s
+    AND date = %s
     """,
-    (selected_date.isoformat(),)
+    (user_id, selected_date.isoformat())
     )
 
     activities = cursor.fetchall()
@@ -987,12 +1043,14 @@ elif page == "📜 History":
         """
         SELECT task, type, scheduled_time, deadline, completed_at
         FROM tasks
-        WHERE completed = 1
+        WHERE user_id = %s
+        AND completed = 1
         AND completed_at >= %s
         AND completed_at < %s
         ORDER BY completed_at
         """,
         (
+            user_id,
             selected_date.isoformat(),
             next_date.isoformat()
         )
