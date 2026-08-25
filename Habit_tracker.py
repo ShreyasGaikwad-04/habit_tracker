@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="Daily Tracker",
     page_icon="📅",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
     menu_items={"Get Help": None, "Report a bug": None, "About": None},
 )
 
@@ -204,7 +204,7 @@ st.markdown(
     /* On small screens, let content use the full width and keep controls touchable. */
     @media (max-width: 640px) {
         [data-testid="stMainBlockContainer"] {
-            padding: 0.65rem 0.75rem 1.5rem;
+            padding: 3rem 0.75rem 1.5rem;
         }
 
         h1 {
@@ -326,16 +326,16 @@ if "selected_date" not in st.session_state:
 
 dates = [
     st.session_state.date_window_start + timedelta(days=offset)
-    for offset in range(5)
+    for offset in range(3)
 ]
 
-previous_col, dates_col, next_col = st.columns([0.6, 10, 0.6])
+previous_col, dates_col, next_col = st.columns([0.9, 8, 0.9])
 
 with previous_col:
     if st.button("←", key="previous_dates"):
-        st.session_state.date_window_start -= timedelta(days=5)
+        st.session_state.date_window_start -= timedelta(days=3)
         st.session_state.selected_date = (
-            st.session_state.date_window_start + timedelta(days=2)
+            st.session_state.date_window_start + timedelta(days=1)
         )
         st.rerun()
 
@@ -354,9 +354,9 @@ st.session_state.selected_date = selected_date
 
 with next_col:
     if st.button("→", key="next_dates"):
-        st.session_state.date_window_start += timedelta(days=5)
+        st.session_state.date_window_start += timedelta(days=3)
         st.session_state.selected_date = (
-            st.session_state.date_window_start + timedelta(days=2)
+            st.session_state.date_window_start + timedelta(days=1)
         )
         st.rerun()
 
