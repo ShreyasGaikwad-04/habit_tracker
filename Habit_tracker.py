@@ -670,8 +670,8 @@ elif page == "✅ To-Do List":
 
     todo_type = st.pills(
         "Task type",
-        ["📅 Scheduled", "⏰ Deadline", "📌 Flexible"],
-        default="📅 Scheduled"
+        ["📌 Flexible", "⏰ Deadline", "📅 Scheduled"],
+        default="📌 Flexible"
     )
 
 
@@ -680,8 +680,6 @@ elif page == "✅ To-Do List":
     # ===================================
 
     if todo_type == "📅 Scheduled":
-
-        st.subheader("📅 Scheduled Tasks")
 
         st.caption("Tasks that need to be done on a specific date and time.")
 
@@ -795,11 +793,7 @@ elif page == "✅ To-Do List":
 
     elif todo_type == "⏰ Deadline":
 
-        st.subheader("⏰ Deadline Tasks")
-
-        st.caption(
-            "Tasks that can be done anytime but have a deadline."
-        )
+        st.caption("Tasks that can be done anytime but have a deadline.")
 
         st.divider()
 
@@ -908,11 +902,7 @@ elif page == "✅ To-Do List":
 
     elif todo_type == "📌 Flexible":
 
-        st.subheader("📌 Flexible Tasks")
-
-        st.caption(
-            "Tasks without a specific date or deadline."
-        )
+        st.caption("Tasks without a specific date or deadline.")
 
         st.divider()
 
@@ -1009,7 +999,7 @@ elif page == "📜 History":
 
     cursor = execute(
     """
-    SELECT category, time, description
+    SELECT id, category, time, description
     FROM activities
     WHERE user_id = %s
     AND date = %s
@@ -1027,11 +1017,48 @@ elif page == "📜 History":
 
         total_time = 0
 
-        for category, time, description in activities:
+        for activity_id, category, time, description in activities:
 
-            st.write(f"### {category}")
-            st.write(f"⏱️ {time} hours")
-            st.write(description)
+            activity_col, delete_col = st.columns([5, 1])
+
+            with activity_col:
+                st.write(f"### {category}")
+                st.write(f"⏱️ {time} hours")
+                if description:
+                    st.write(description)
+
+            with delete_col:
+                if st.button(
+                    "Delete",
+                    key=f"delete_activity_{activity_id}"
+                ):
+                    st.session_state["confirm_activity_delete_id"] = activity_id
+                    st.rerun()
+
+            if st.session_state.get("confirm_activity_delete_id") == activity_id:
+                st.warning("Delete this activity from history?")
+                confirm_col, cancel_col = st.columns(2)
+
+                with confirm_col:
+                    if st.button(
+                        "Yes, Delete",
+                        key=f"confirm_delete_activity_{activity_id}"
+                    ):
+                        execute(
+                            "DELETE FROM activities WHERE id = %s AND user_id = %s",
+                            (activity_id, user_id)
+                        )
+                        conn.commit()
+                        st.session_state.pop("confirm_activity_delete_id", None)
+                        st.rerun()
+
+                with cancel_col:
+                    if st.button(
+                        "Cancel",
+                        key=f"cancel_delete_activity_{activity_id}"
+                    ):
+                        st.session_state.pop("confirm_activity_delete_id", None)
+                        st.rerun()
 
             total_time += time
 
