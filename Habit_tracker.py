@@ -683,8 +683,6 @@ elif page == "✅ To-Do List":
 
         st.caption("Tasks that need to be done on a specific date and time.")
 
-        st.divider()
-
         st.subheader(
             f"Tasks for {selected_date.strftime('%d %B %Y')}"
         )
@@ -795,8 +793,6 @@ elif page == "✅ To-Do List":
 
         st.caption("Tasks that can be done anytime but have a deadline.")
 
-        st.divider()
-
         st.subheader("Active Deadlines")
 
         # Today's date
@@ -903,8 +899,6 @@ elif page == "✅ To-Do List":
     elif todo_type == "📌 Flexible":
 
         st.caption("Tasks without a specific date or deadline.")
-
-        st.divider()
 
         st.subheader("Your Flexible Tasks")
 
