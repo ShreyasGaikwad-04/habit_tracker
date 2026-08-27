@@ -5,6 +5,7 @@ import streamlit as st
 from datetime import date, datetime, timedelta
 import os
 import mysql.connector
+import plotly.graph_objects as go
 
 st.set_page_config(
     page_title="Daily Tracker",
@@ -118,6 +119,61 @@ st.markdown(
     [data-testid="stDivider"] {
         margin: 0.75rem 0;
         border-color: var(--line);
+    }
+
+    .analytics-summary {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(190px, 1.3fr);
+        gap: 0.6rem;
+        margin: 0.35rem 0 0.7rem;
+    }
+
+    .analytics-stat {
+        min-height: 86px;
+        padding: 0.75rem 0.85rem;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: linear-gradient(145deg, rgba(32, 53, 58, 0.95), rgba(24, 40, 44, 0.95));
+    }
+
+    .analytics-stat > span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .analytics-stat > strong {
+        display: block;
+        margin-top: 0.35rem;
+        color: var(--accent);
+        font-size: 1.55rem;
+    }
+
+    .analytics-top table {
+        width: 100%;
+        margin-top: 0.2rem;
+        color: var(--ink);
+        font-size: 0.78rem;
+    }
+
+    .analytics-top td {
+        padding: 0.08rem 0;
+        border: 0;
+    }
+
+    .analytics-top td:last-child {
+        color: var(--warm);
+        text-align: right;
+    }
+
+    .analytics-rank {
+        display: inline-block;
+        width: 1.15rem;
+        color: var(--accent);
+        font-weight: 700;
     }
 
     [data-testid="stExpander"] {
@@ -390,7 +446,7 @@ if st.sidebar.button("Log out"):
 
 page = st.sidebar.radio(
     "Go to",
-    ["📝 Activities", "✅ To-Do List", "📜 History"]
+    ["📝 Activities", "✅ To-Do List", "📜 History", "📊 Analytics"]
 )
 
 # ----------------------------------------------------------------------
@@ -410,9 +466,10 @@ dates = [
     for offset in range(3)
 ]
 
-with st.container(key="date-navigation"):
-    date_options = ["←"] + dates + ["→"]
-    selected_option = st.pills(
+if page != "📊 Analytics":
+    with st.container(key="date-navigation"):
+        date_options = ["←"] + dates + ["→"]
+        selected_option = st.pills(
         "Select a date",
         date_options,
         format_func=lambda value: (
@@ -422,24 +479,24 @@ with st.container(key="date-navigation"):
         key=f"date_pills_{st.session_state.date_window_start}",
         label_visibility="collapsed",
         width="stretch",
-    )
-
-    if selected_option == "←":
-        st.session_state.date_window_start -= timedelta(days=3)
-        st.session_state.selected_date = (
-            st.session_state.date_window_start + timedelta(days=1)
         )
-        st.rerun()
 
-    if selected_option == "→":
-        st.session_state.date_window_start += timedelta(days=3)
-        st.session_state.selected_date = (
-            st.session_state.date_window_start + timedelta(days=1)
-        )
-        st.rerun()
+        if selected_option == "←":
+            st.session_state.date_window_start -= timedelta(days=3)
+            st.session_state.selected_date = (
+                st.session_state.date_window_start + timedelta(days=1)
+            )
+            st.rerun()
 
-    if isinstance(selected_option, date):
-        st.session_state.selected_date = selected_option
+        if selected_option == "→":
+            st.session_state.date_window_start += timedelta(days=3)
+            st.session_state.selected_date = (
+                st.session_state.date_window_start + timedelta(days=1)
+            )
+            st.rerun()
+
+        if isinstance(selected_option, date):
+            st.session_state.selected_date = selected_option
 
 selected_date = st.session_state.selected_date
 
@@ -456,7 +513,114 @@ selected_date = st.session_state.selected_date
 # Categories page
 # ----------------------------------------------------------------------
 
-if page == "📝 Activities":
+if page == "📊 Analytics":
+
+    st.title("📊 Analytics")
+    period_type = st.pills(
+        "View by", ["Weekly", "Monthly"], default="Weekly",
+        key="analytics_period_type", label_visibility="collapsed", width="stretch",
+    )
+    chosen_date = st.date_input(
+        "Choose a date in the period", value=today,
+        key=f"analytics_{period_type.lower()}_date", label_visibility="collapsed",
+    )
+
+    if period_type == "Weekly":
+        period_start = chosen_date - timedelta(days=chosen_date.weekday())
+        period_end = period_start + timedelta(days=6)
+        period_label = f"{period_start.strftime('%d %b')} - {period_end.strftime('%d %b %Y')}"
+        chart_dates = [period_start + timedelta(days=index) for index in range(7)]
+    else:
+        period_start = chosen_date.replace(day=1)
+        next_period = date(period_start.year + 1, 1, 1) if period_start.month == 12 else date(period_start.year, period_start.month + 1, 1)
+        period_end = next_period - timedelta(days=1)
+        period_label = period_start.strftime("%B %Y")
+        chart_dates = [period_start + timedelta(days=index) for index in range((period_end - period_start).days + 1)]
+
+    st.caption(period_label)
+
+    activity_rows = execute(
+        """
+        SELECT date, category, time
+        FROM activities
+        WHERE user_id = %s AND date BETWEEN %s AND %s
+        ORDER BY date
+        """,
+        (user_id, period_start.isoformat(), period_end.isoformat()),
+    ).fetchall()
+
+    if not activity_rows:
+        st.info(f"No time logged for {period_label}. Add an activity in this period to see your analytics.")
+    else:
+        daily_totals = {activity_date: 0.0 for activity_date in chart_dates}
+        category_totals = {}
+        daily_category_totals = {activity_date: {} for activity_date in chart_dates}
+
+        for activity_date, category, logged_time in activity_rows:
+            activity_date = activity_date.date() if isinstance(activity_date, datetime) else activity_date
+            logged_time = float(logged_time or 0)
+            daily_totals[activity_date] += logged_time
+            category_totals[category] = category_totals.get(category, 0.0) + logged_time
+            daily_category_totals[activity_date][category] = daily_category_totals[activity_date].get(category, 0.0) + logged_time
+
+        total_logged = sum(daily_totals.values())
+        average_per_day = total_logged / len(chart_dates)
+        top_categories = sorted(category_totals.items(), key=lambda item: item[1], reverse=True)
+        visible_categories = [category for category, _ in top_categories[:4]]
+        if len(top_categories) > 4:
+            visible_categories.append("Others")
+
+        colors = ["#55d6c2", "#ff9c73", "#8fb8ff", "#f3c969", "#ad8de2"]
+        summary_rows = "".join(
+            f'<tr><td><span class="analytics-rank">{index}</span> {category}</td><td><strong>{hours:.1f} h</strong></td></tr>'
+            for index, (category, hours) in enumerate(top_categories[:3], start=1)
+        )
+        st.markdown(
+            f'''<div class="analytics-summary">
+                <div class="analytics-stat"><span>Total logged</span><strong>{total_logged:.1f} h</strong></div>
+                <div class="analytics-stat"><span>Average per day</span><strong>{average_per_day:.1f} h</strong></div>
+                <div class="analytics-stat analytics-top"><span>Top categories</span><table><tbody>{summary_rows}</tbody></table></div>
+            </div>''', unsafe_allow_html=True,
+        )
+
+        bar_figure = go.Figure()
+        for color_index, category in enumerate(visible_categories):
+            values = []
+            for activity_date in chart_dates:
+                if category == "Others":
+                    value = sum(daily_category_totals[activity_date].get(name, 0.0) for name, _ in top_categories[4:])
+                else:
+                    value = daily_category_totals[activity_date].get(category, 0.0)
+                values.append(value)
+            bar_figure.add_trace(go.Bar(
+                name=category, x=[activity_date.strftime("%a %d") for activity_date in chart_dates], y=values,
+                marker_color=colors[color_index], hovertemplate=f"{category}: %{{y:.1f}} h<extra></extra>",
+            ))
+        bar_figure.update_layout(
+            barmode="stack", height=310, margin=dict(l=0, r=0, t=12, b=0),
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#f4f7f5"),
+            legend=dict(orientation="h", y=1.08), xaxis=dict(showgrid=False),
+            yaxis=dict(title="Hours", gridcolor="#344d51"),
+        )
+        st.plotly_chart(bar_figure, width="stretch", config={"displayModeBar": False})
+
+        donut_labels = [category for category, _ in top_categories[:4]]
+        donut_values = [hours for _, hours in top_categories[:4]]
+        if len(top_categories) > 4:
+            donut_labels.append("Others")
+            donut_values.append(sum(hours for _, hours in top_categories[4:]))
+        donut_figure = go.Figure(go.Pie(
+            labels=donut_labels, values=donut_values, hole=0.62,
+            marker=dict(colors=colors[:len(donut_labels)]), textinfo="percent",
+            hovertemplate="%{label}: %{value:.1f} h<extra></extra>",
+        ))
+        donut_figure.update_layout(
+            height=330, margin=dict(l=0, r=0, t=12, b=0), paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#f4f7f5"), legend=dict(orientation="h", y=-0.05), showlegend=True,
+        )
+        st.plotly_chart(donut_figure, width="stretch", config={"displayModeBar": False})
+
+elif page == "📝 Activities":
     
     st.title("📅 Daily Tracker")
     st.markdown(
