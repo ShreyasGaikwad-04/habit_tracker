@@ -295,10 +295,6 @@ st.markdown(
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .analytics-stat:last-child {
-            grid-column: 1 / -1;
-        }
-
         [data-testid="stHorizontalBlock"] {
             gap: 0.35rem;
         }
@@ -562,20 +558,12 @@ if page == "📊 Analytics":
         colors = ["#55d6c2", "#ff9c73", "#8fb8ff", "#f3c969", "#ad8de2"]
         top_category, top_category_hours = top_categories[0]
         peak_date, peak_hours = max(daily_totals.items(), key=lambda item: item[1])
-        category_day = max(
-            ((activity_date, category, hours)
-             for activity_date, categories in daily_category_totals.items()
-             for category, hours in categories.items()),
-            key=lambda item: item[2],
-        )
-        _, category_day_name, category_day_hours = category_day
         st.markdown(
             f'''<div class="analytics-summary">
                 <div class="analytics-stat"><span>Total logged</span><strong>{total_logged:.1f} h</strong></div>
                 <div class="analytics-stat"><span>Average per day</span><strong>{average_per_day:.1f} h</strong></div>
                 <div class="analytics-stat"><span>Top category</span><strong>{top_category} · {top_category_hours:.1f} h</strong></div>
                 <div class="analytics-stat"><span>Peak day</span><strong>{peak_date.strftime('%a')} · {peak_hours:.1f} h</strong></div>
-                <div class="analytics-stat"><span>Best category day</span><strong>{category_day_name} · {category_day_hours:.1f} h</strong></div>
             </div>''', unsafe_allow_html=True,
         )
 
