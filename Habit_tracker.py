@@ -123,12 +123,16 @@ st.markdown(
 
     .analytics-summary {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(190px, 1.3fr);
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 0.6rem;
         margin: 0.35rem 0 0.7rem;
     }
 
     .analytics-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        min-width: 0;
         min-height: 86px;
         padding: 0.75rem 0.85rem;
         border: 1px solid var(--line);
@@ -137,7 +141,7 @@ st.markdown(
     }
 
     .analytics-stat > span {
-        display: block;
+        flex: 0 1 auto;
         color: var(--muted);
         font-size: 0.74rem;
         font-weight: 700;
@@ -146,34 +150,11 @@ st.markdown(
     }
 
     .analytics-stat > strong {
-        display: block;
-        margin-top: 0.35rem;
+        flex: 0 1 auto;
+        overflow-wrap: anywhere;
+        margin-left: auto;
         color: var(--accent);
-        font-size: 1.55rem;
-    }
-
-    .analytics-top table {
-        width: 100%;
-        margin-top: 0.2rem;
-        color: var(--ink);
-        font-size: 0.78rem;
-    }
-
-    .analytics-top td {
-        padding: 0.08rem 0;
-        border: 0;
-    }
-
-    .analytics-top td:last-child {
-        color: var(--warm);
-        text-align: right;
-    }
-
-    .analytics-rank {
-        display: inline-block;
-        width: 1.15rem;
-        color: var(--accent);
-        font-weight: 700;
+        font-size: 1.25rem;
     }
 
     [data-testid="stExpander"] {
@@ -308,6 +289,14 @@ st.markdown(
 
         h2 {
             font-size: 1.2rem !important;
+        }
+
+        .analytics-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .analytics-stat:last-child {
+            grid-column: 1 / -1;
         }
 
         [data-testid="stHorizontalBlock"] {
@@ -571,15 +560,22 @@ if page == "📊 Analytics":
             visible_categories.append("Others")
 
         colors = ["#55d6c2", "#ff9c73", "#8fb8ff", "#f3c969", "#ad8de2"]
-        summary_rows = "".join(
-            f'<tr><td><span class="analytics-rank">{index}</span> {category}</td><td><strong>{hours:.1f} h</strong></td></tr>'
-            for index, (category, hours) in enumerate(top_categories[:3], start=1)
+        top_category, top_category_hours = top_categories[0]
+        peak_date, peak_hours = max(daily_totals.items(), key=lambda item: item[1])
+        category_day = max(
+            ((activity_date, category, hours)
+             for activity_date, categories in daily_category_totals.items()
+             for category, hours in categories.items()),
+            key=lambda item: item[2],
         )
+        _, category_day_name, category_day_hours = category_day
         st.markdown(
             f'''<div class="analytics-summary">
                 <div class="analytics-stat"><span>Total logged</span><strong>{total_logged:.1f} h</strong></div>
                 <div class="analytics-stat"><span>Average per day</span><strong>{average_per_day:.1f} h</strong></div>
-                <div class="analytics-stat analytics-top"><span>Top categories</span><table><tbody>{summary_rows}</tbody></table></div>
+                <div class="analytics-stat"><span>Top category</span><strong>{top_category} · {top_category_hours:.1f} h</strong></div>
+                <div class="analytics-stat"><span>Peak day</span><strong>{peak_date.strftime('%a')} · {peak_hours:.1f} h</strong></div>
+                <div class="analytics-stat"><span>Best category day</span><strong>{category_day_name} · {category_day_hours:.1f} h</strong></div>
             </div>''', unsafe_allow_html=True,
         )
 
@@ -594,7 +590,7 @@ if page == "📊 Analytics":
                 values.append(value)
             bar_figure.add_trace(go.Bar(
                 name=category, x=[activity_date.strftime("%a %d") for activity_date in chart_dates], y=values,
-                marker_color=colors[color_index], hovertemplate=f"{category}: %{{y:.1f}} h<extra></extra>",
+                marker_color=colors[color_index], hoverinfo="skip",
             ))
         bar_figure.update_layout(
             barmode="stack", height=310, margin=dict(l=0, r=0, t=12, b=0),
@@ -602,7 +598,7 @@ if page == "📊 Analytics":
             legend=dict(orientation="h", y=1.08), xaxis=dict(showgrid=False),
             yaxis=dict(title="Hours", gridcolor="#344d51"),
         )
-        st.plotly_chart(bar_figure, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(bar_figure, width="stretch", config={"staticPlot": True, "displayModeBar": False})
 
         donut_labels = [category for category, _ in top_categories[:4]]
         donut_values = [hours for _, hours in top_categories[:4]]
@@ -611,14 +607,13 @@ if page == "📊 Analytics":
             donut_values.append(sum(hours for _, hours in top_categories[4:]))
         donut_figure = go.Figure(go.Pie(
             labels=donut_labels, values=donut_values, hole=0.62,
-            marker=dict(colors=colors[:len(donut_labels)]), textinfo="percent",
-            hovertemplate="%{label}: %{value:.1f} h<extra></extra>",
+            marker=dict(colors=colors[:len(donut_labels)]), textinfo="percent", hoverinfo="skip",
         ))
         donut_figure.update_layout(
             height=330, margin=dict(l=0, r=0, t=12, b=0), paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#f4f7f5"), legend=dict(orientation="h", y=-0.05), showlegend=True,
         )
-        st.plotly_chart(donut_figure, width="stretch", config={"displayModeBar": False})
+        st.plotly_chart(donut_figure, width="stretch", config={"staticPlot": True, "displayModeBar": False})
 
 elif page == "📝 Activities":
     
