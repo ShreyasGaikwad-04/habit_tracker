@@ -618,26 +618,27 @@ elif page == "📝 Activities":
     # --------------------------------------------
     with st.expander("➕ Add Category"):
 
-        new_category_name = st.text_input(
-            "Category name",
-            placeholder="e.g. Music"
-        )
+        with st.form("add_category_form"):
+            new_category_name = st.text_input(
+                "Category name",
+                placeholder="e.g. Music"
+            )
+            new_category_emoji = st.text_input(
+                "Emoji",
+                placeholder="e.g. 🎵"
+            )
+            add_category = st.form_submit_button("Add Category")
 
-        new_category_emoji = st.text_input(
-            "Emoji",
-            placeholder="e.g. 🎵"
-        )
+        if add_category:
 
-        if st.button("Add Category"):
-
-            if new_category_name and new_category_emoji:
+            if new_category_name.strip() and new_category_emoji.strip():
 
                 execute(
                     """
                     INSERT INTO categories (user_id, name, emoji)
                     VALUES (%s, %s, %s)
                     """,
-                    (user_id, new_category_name, new_category_emoji)
+                    (user_id, new_category_name.strip(), new_category_emoji.strip())
                 )
 
                 conn.commit()
@@ -652,81 +653,89 @@ elif page == "📝 Activities":
 
                 st.warning("Please enter both a name and an emoji.")
 
-    # --------------------------------------------
-    # Delete category
-    # --------------------------------------------
-    with st.expander("🗑️ Delete Category"):
+    categories = execute(
+        "SELECT id, name, emoji FROM categories WHERE user_id = %s",
+        (user_id,)
+    ).fetchall()
 
-        categories_to_delete = execute(
-            "SELECT id, name, emoji FROM categories WHERE user_id = %s",
-            (user_id,)
-        ).fetchall()
+    with st.expander("⚙️ Manage Existing Categories"):
+        for category_id, name, emoji in categories:
+            category_col, rename_col, delete_col = st.columns([5, 1, 1])
 
-        category_options = {
-            category_id: f"{emoji} {name}"
-            for category_id, name, emoji in categories_to_delete
-        }
+            with category_col:
+                st.write(f"{emoji} {name}")
 
-        category_id = st.selectbox(
-            "Select category to delete",
-            options=category_options.keys(),
-            format_func=lambda x: category_options[x]
-        )
+            with rename_col:
+                if st.button("Rename", key=f"rename_category_{category_id}"):
+                    st.session_state["rename_category_id"] = category_id
+                    st.rerun()
 
-        if st.button("Delete Category"):
+            with delete_col:
+                if st.button("Delete", key=f"delete_category_{category_id}"):
+                    st.session_state["delete_category_id"] = category_id
+                    st.rerun()
 
-            st.session_state["confirm_delete"] = True
+            if st.session_state.get("rename_category_id") == category_id:
+                with st.form(key=f"rename_category_form_{category_id}"):
+                    renamed_category_name = st.text_input(
+                        "New category name",
+                        value=name,
+                    )
+                    save_rename, cancel_rename = st.columns(2)
+                    with save_rename:
+                        rename_submitted = st.form_submit_button("Save Name")
+                    with cancel_rename:
+                        rename_cancelled = st.form_submit_button("Cancel")
 
+                if rename_submitted:
+                    if renamed_category_name.strip():
+                        execute(
+                            """
+                            UPDATE categories
+                            SET name = %s
+                            WHERE id = %s AND user_id = %s
+                            """,
+                            (renamed_category_name.strip(), category_id, user_id)
+                        )
+                        conn.commit()
+                        st.session_state.pop("rename_category_id", None)
+                        st.rerun()
+                    else:
+                        st.warning("Please enter a category name.")
 
-        # Confirmation
-        if st.session_state.get("confirm_delete", False):
+                if rename_cancelled:
+                    st.session_state.pop("rename_category_id", None)
+                    st.rerun()
 
-            selected_name = category_options[category_id]
+            if st.session_state.get("delete_category_id") == category_id:
+                st.warning(
+                    f"Delete {emoji} {name}? Previous activity history will remain."
+                )
+                confirm_delete, cancel_delete = st.columns(2)
+                with confirm_delete:
+                    delete_confirmed = st.button(
+                        "Yes, Delete",
+                        key=f"confirm_delete_category_{category_id}",
+                    )
+                with cancel_delete:
+                    delete_cancelled = st.button(
+                        "Cancel",
+                        key=f"cancel_delete_category_{category_id}",
+                    )
 
-            st.warning(
-                f"Are you sure you want to delete {selected_name}?\n\n"
-                "This will remove it from future activities, "
-                "but your previous activity history will remain."
-            )
-
-            col1, col2 = st.columns(2)
-
-            with col1:
-                if st.button("Yes, Delete"):
-
+                if delete_confirmed:
                     execute(
                         "DELETE FROM categories WHERE id = %s AND user_id = %s",
                         (category_id, user_id)
                     )
-
                     conn.commit()
-
-                    st.session_state["confirm_delete"] = False
-
-                    st.success(f"{selected_name} deleted!")
-
+                    st.session_state.pop("delete_category_id", None)
                     st.rerun()
 
-            with col2:
-                if st.button("Cancel"):
-
-                    st.session_state["confirm_delete"] = False
-
+                if delete_cancelled:
+                    st.session_state.pop("delete_category_id", None)
                     st.rerun()
 
-    # --------------------------------------------
-    # Get categories from database
-    # --------------------------------------------
-
-    cursor = execute(
-        "SELECT id, name, emoji FROM categories WHERE user_id = %s",
-        (user_id,)
-    )
-
-    categories = cursor.fetchall()
-
-
-    
     # --------------------------------------------
     # Display categories
     # --------------------------------------------
@@ -821,7 +830,6 @@ elif page == "✅ To-Do List":
         default="📌 Flexible"
     )
 
-
     # ===================================
     # 📅 SCHEDULED TASKS
     # ===================================
@@ -834,7 +842,6 @@ elif page == "✅ To-Do List":
             f"Tasks for {selected_date.strftime('%d %B %Y')}"
         )
 
-        # Get scheduled tasks for selected date
         scheduled_tasks = execute(
             """
             SELECT id, task, scheduled_time
@@ -848,47 +855,26 @@ elif page == "✅ To-Do List":
             (user_id, selected_date.isoformat())
         ).fetchall()
 
-
         if scheduled_tasks:
-
             for task_id, task_name, task_time in scheduled_tasks:
-
                 col1, col2 = st.columns([5, 1])
 
                 with col1:
-
-                    st.write(
-                        f"☐ **{task_name}** — {task_time}"
-                    )
+                    st.write(f"✅ **{task_name}** — {task_time}")
 
                 with col2:
-
-                    if st.button(
-                        "Done",
-                        key=f"done_scheduled_{task_id}"
-                    ):
-
+                    if st.button("Done", key=f"done_scheduled_{task_id}"):
                         execute(
                             """
                             UPDATE tasks
-                            SET completed = 1,
-                                completed_at = %s
-                                WHERE id = %s
-                                AND user_id = %s
+                            SET completed = 1, completed_at = %s
+                            WHERE id = %s AND user_id = %s
                             """,
-                            (
-                                datetime.now().isoformat(),
-                                task_id,
-                                user_id
-                            )
+                            (datetime.now().isoformat(), task_id, user_id)
                         )
-
                         conn.commit()
-
                         st.rerun()
-
         else:
-
             st.info("No scheduled tasks for this date.")
 
         with st.expander("➕ Add Task"):
@@ -897,17 +883,12 @@ elif page == "✅ To-Do List":
                 placeholder="e.g. Gym",
                 key="scheduled_task"
             )
-
             scheduled_date = st.date_input(
                 "Date",
                 value=selected_date,
                 key="scheduled_date"
             )
-
-            scheduled_time = st.time_input(
-                "Time",
-                key="scheduled_time"
-            )
+            scheduled_time = st.time_input("Time", key="scheduled_time")
 
             if st.button("Save Task", key="save_scheduled_task"):
                 if task.strip():
@@ -930,11 +911,6 @@ elif page == "✅ To-Do List":
                     st.rerun()
                 else:
                     st.warning("Please enter a task.")
-
-
-    # ===================================
-    # ⏰ DEADLINE TASKS
-    # ===================================
 
     elif todo_type == "⏰ Deadline":
 
