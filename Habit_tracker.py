@@ -649,6 +649,10 @@ if page == "📊 Analytics":
         )
         st.plotly_chart(donut_figure, width="stretch", config={"staticPlot": True, "displayModeBar": False})
 
+        if len(top_categories) > 4:
+            other_category_names = [name for name, _ in top_categories[4:]]
+            st.caption(f"Other categories: {', '.join(other_category_names)}")
+
 elif page == "📝 Activities":
     
     st.title("📅 Daily Tracker")
