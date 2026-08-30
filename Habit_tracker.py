@@ -841,12 +841,13 @@ elif page == "📝 Activities":
             execute(
                 """
                 INSERT INTO activities
-                (user_id, date, category_id, time, description)
-                VALUES (%s, %s, %s, %s, %s)
+                (user_id, date, category, category_id, time, description)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
                 (
                     user_id,
                     selected_date.isoformat(),
+                    activity["category_name"],
                     activity["category_id"],
                     activity["time"],
                     activity["description"]
