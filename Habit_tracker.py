@@ -619,7 +619,7 @@ if page == "📊 Analytics":
                 marker_color=colors[color_index], hoverinfo="skip",
             ))
         bar_figure.update_layout(
-            barmode="stack", height=260, margin=dict(l=0, r=0, t=10, b=70),
+            barmode="stack", height=300, margin=dict(l=0, r=0, t=10, b=70),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#f4f7f5"),
             legend=dict(
                 orientation="h",
