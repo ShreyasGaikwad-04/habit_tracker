@@ -359,6 +359,42 @@ def executemany(query, params):
     return cursor
 
 
+def ensure_activities_category_id_column():
+    column = execute("SHOW COLUMNS FROM activities LIKE 'category_id'").fetchone()
+    if column is None:
+        execute("ALTER TABLE activities ADD COLUMN category_id INT NULL")
+        conn.commit()
+
+    legacy_rows = execute(
+        """
+        SELECT id, user_id, category
+        FROM activities
+        WHERE category_id IS NULL AND category IS NOT NULL
+        """
+    ).fetchall()
+
+    for activity_id, activity_user_id, legacy_category_name in legacy_rows:
+        category_row = execute(
+            """
+            SELECT id
+            FROM categories
+            WHERE user_id = %s AND name = %s
+            LIMIT 1
+            """,
+            (activity_user_id, legacy_category_name),
+        ).fetchone()
+
+        if category_row is not None:
+            execute(
+                "UPDATE activities SET category_id = %s WHERE id = %s",
+                (category_row[0], activity_id),
+            )
+
+    conn.commit()
+
+
+ensure_activities_category_id_column()
+
 google_subject = st.user.sub
 user_name = getattr(st.user, "name", "")
 
@@ -526,10 +562,11 @@ if page == "📊 Analytics":
 
     activity_rows = execute(
         """
-        SELECT date, category, time
-        FROM activities
-        WHERE user_id = %s AND date BETWEEN %s AND %s
-        ORDER BY date
+        SELECT a.date, c.name, a.time
+        FROM activities a
+        LEFT JOIN categories c ON c.id = a.category_id
+        WHERE a.user_id = %s AND a.date BETWEEN %s AND %s
+        ORDER BY a.date
         """,
         (user_id, period_start.isoformat(), period_end.isoformat()),
     ).fetchall()
@@ -541,12 +578,13 @@ if page == "📊 Analytics":
         category_totals = {}
         daily_category_totals = {activity_date: {} for activity_date in chart_dates}
 
-        for activity_date, category, logged_time in activity_rows:
+        for activity_date, category_name, logged_time in activity_rows:
             activity_date = activity_date.date() if isinstance(activity_date, datetime) else activity_date
+            category_name = category_name or "Unknown"
             logged_time = float(logged_time or 0)
             daily_totals[activity_date] += logged_time
-            category_totals[category] = category_totals.get(category, 0.0) + logged_time
-            daily_category_totals[activity_date][category] = daily_category_totals[activity_date].get(category, 0.0) + logged_time
+            category_totals[category_name] = category_totals.get(category_name, 0.0) + logged_time
+            daily_category_totals[activity_date][category_name] = daily_category_totals[activity_date].get(category_name, 0.0) + logged_time
 
         total_logged = sum(daily_totals.values())
         average_per_day = total_logged / len(chart_dates)
@@ -581,9 +619,10 @@ if page == "📊 Analytics":
                 marker_color=colors[color_index], hoverinfo="skip",
             ))
         bar_figure.update_layout(
-            barmode="stack", height=310, margin=dict(l=0, r=0, t=12, b=0),
+            barmode="stack", height=330, margin=dict(l=0, r=0, t=52, b=0),
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#f4f7f5"),
-            legend=dict(orientation="h", y=1.08), xaxis=dict(showgrid=False),
+            legend=dict(orientation="h", y=1.12, x=0.5, xanchor="center"),
+            xaxis=dict(showgrid=False),
             yaxis=dict(title="Hours", gridcolor="#344d51"),
         )
         st.plotly_chart(bar_figure, width="stretch", config={"staticPlot": True, "displayModeBar": False})
@@ -781,7 +820,8 @@ elif page == "📝 Activities":
         )
 
         activity_data.append({
-            "category": name,
+            "category_id": category_id,
+            "category_name": name,
             "time": time_spent,
             "description": description
         })
@@ -794,13 +834,13 @@ elif page == "📝 Activities":
             execute(
                 """
                 INSERT INTO activities
-                (user_id, date, category, time, description)
+                (user_id, date, category_id, time, description)
                 VALUES (%s, %s, %s, %s, %s)
                 """,
                 (
                     user_id,
                     selected_date.isoformat(),
-                    activity["category"],
+                    activity["category_id"],
                     activity["time"],
                     activity["description"]
                 )
@@ -1116,10 +1156,12 @@ elif page == "📜 History":
 
     cursor = execute(
     """
-    SELECT id, category, time, description
-    FROM activities
-    WHERE user_id = %s
-    AND date = %s
+    SELECT a.id, c.name, a.time, a.description
+    FROM activities a
+    LEFT JOIN categories c ON c.id = a.category_id
+    WHERE a.user_id = %s
+    AND a.date = %s
+    ORDER BY a.id DESC
     """,
     (user_id, selected_date.isoformat())
     )
@@ -1134,12 +1176,13 @@ elif page == "📜 History":
 
         total_time = 0
 
-        for activity_id, category, time, description in activities:
+        for activity_id, category_name, time, description in activities:
+            category_label = category_name or "Unknown"
 
             activity_col, delete_col = st.columns([5, 1])
 
             with activity_col:
-                st.write(f"### {category}")
+                st.write(f"### {category_label}")
                 st.write(f"⏱️ {time} hours")
                 if description:
                     st.write(description)
